@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DynastySlayer – Dynasty Fantasy Football</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- LANDING / LEAGUE INPUT -->
+  <div id="landing-screen" class="screen active">
+    <div class="landing-bg"></div>
+    <div class="landing-content">
+      <div class="logo-block">
+        <span class="logo-icon">⚔️</span>
+        <h1 class="logo-text">DYNASTY<span class="accent">SLAYER</span></h1>
+        <p class="logo-sub">Dynasty Fantasy Football Intelligence</p>
+      </div>
+      <div class="input-card">
+        <label class="input-label">Enter your Sleeper League ID</label>
+        <div class="input-row">
+          <input type="text" id="league-id-input" placeholder="e.g. 1048647855063564288" autocomplete="off" />
+          <button id="load-league-btn" class="btn-primary">
+            <span class="btn-text">LOAD LEAGUE</span>
+            <span class="btn-loader hidden">⟳</span>
+          </button>
+        </div>
+        <div id="input-error" class="error-msg hidden"></div>
+        <div id="recent-leagues" class="recent-leagues hidden">
+          <span class="recent-label">Recent:</span>
+          <div id="recent-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TEAM PICKER -->
+  <div id="team-picker-screen" class="screen">
+    <div class="screen-header">
+      <button class="back-btn" onclick="App.goToLanding()">← Back</button>
+      <div class="screen-title-block">
+        <h2 id="league-name-display" class="screen-title">Loading...</h2>
+        <span id="league-meta" class="screen-subtitle"></span>
+      </div>
+    </div>
+    <div class="team-grid-wrap">
+      <p class="pick-prompt">Select your team to begin analysis</p>
+      <div id="team-grid" class="team-grid"></div>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="main-screen" class="screen">
+    <!-- TOP BAR -->
+    <header class="app-header">
+      <div class="header-left">
+        <button class="icon-btn" onclick="App.goToTeamPicker()" title="Switch Team">⬅</button>
+        <div class="header-brand">
+          <span class="header-logo">⚔️ DYNASTY<span class="accent">SLAYER</span></span>
+        </div>
+      </div>
+      <div class="header-center">
+        <span id="header-team-name" class="header-team"></span>
+      </div>
+      <div class="header-right">
+        <button class="icon-btn" onclick="App.switchLeague()" title="Switch League">🔄</button>
+      </div>
+    </header>
+
+    <!-- NAV TABS -->
+    <nav class="tab-nav">
+      <button class="tab-btn active" data-tab="dashboard">📊 Dashboard</button>
+      <button class="tab-btn" data-tab="roster">👥 Roster</button>
+      <button class="tab-btn" data-tab="trades">🔁 Trades</button>
+      <button class="tab-btn" data-tab="calculator">🧮 Calculator</button>
+      <button class="tab-btn" data-tab="draft">📋 Draft</button>
+      <button class="tab-btn" data-tab="league">🏆 League</button>
+    </nav>
+
+    <!-- TAB CONTENT -->
+    <main class="tab-content">
+
+      <!-- DASHBOARD TAB -->
+      <div id="tab-dashboard" class="tab-panel active">
+        <div class="dashboard-grid">
+          <div class="card roster-grade-card">
+            <div class="card-label">Roster Grade</div>
+            <div id="roster-grade" class="grade-display">–</div>
+            <div id="roster-grade-label" class="grade-label">Loading...</div>
+          </div>
+          <div class="card total-value-card">
+            <div class="card-label">Total Roster Value</div>
+            <div id="total-value" class="value-display">–</div>
+            <div class="card-sub">Avg KTC + DD</div>
+          </div>
+          <div class="card avg-age-card">
+            <div class="card-label">Average Age</div>
+            <div id="avg-age" class="value-display">–</div>
+            <div class="card-sub">Skill Positions</div>
+          </div>
+          <div class="card record-card">
+            <div class="card-label">Record</div>
+            <div id="team-record" class="value-display">–</div>
+            <div class="card-sub">W – L – T</div>
+          </div>
+        </div>
+
+        <div class="section-row">
+          <div class="card flex-card">
+            <div class="card-title">Position Breakdown</div>
+            <div id="position-bars" class="position-bars"></div>
+          </div>
+          <div class="card flex-card">
+            <div class="card-title">Age Curve</div>
+            <div id="age-curve-chart" class="chart-container"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">⚡ Quick Insights</div>
+          <div id="quick-insights" class="insights-list"></div>
+        </div>
+      </div>
+
+      <!-- ROSTER TAB -->
+      <div id="tab-roster" class="tab-panel">
+        <div class="roster-filters">
+          <button class="filter-btn active" data-pos="ALL">All</button>
+          <button class="filter-btn qb" data-pos="QB">QB</button>
+          <button class="filter-btn rb" data-pos="RB">RB</button>
+          <button class="filter-btn wr" data-pos="WR">WR</button>
+          <button class="filter-btn te" data-pos="TE">TE</button>
+          <button class="filter-btn pick" data-pos="PICK">Picks</button>
+        </div>
+        <div id="roster-table" class="roster-table"></div>
+      </div>
+
+      <!-- TRADES TAB -->
+      <div id="tab-trades" class="tab-panel">
+        <div class="card">
+          <div class="card-title">🔁 Smart Trade Proposals</div>
+          <p class="card-desc">AI-generated trade suggestions based on your roster needs and league values.</p>
+          <button id="gen-trades-btn" class="btn-primary" onclick="Trades.generate()">Generate Trade Proposals</button>
+        </div>
+        <div id="trade-proposals" class="trade-proposals"></div>
+      </div>
+
+      <!-- CALCULATOR TAB -->
+      <div id="tab-calculator" class="tab-panel">
+        <div class="calc-layout">
+          <div class="calc-side">
+            <div class="card">
+              <div class="card-title">Your Side</div>
+              <input type="text" id="calc-search-a" class="calc-search" placeholder="Search player or pick..." />
+              <div id="calc-search-results-a" class="search-results hidden"></div>
+              <div id="calc-side-a" class="calc-players"></div>
+              <div class="calc-total">
+                Total: <span id="calc-total-a" class="calc-total-value">0</span>
+              </div>
+            </div>
+          </div>
+          <div class="calc-vs">
+            <div class="vs-text">VS</div>
+            <div id="calc-verdict" class="calc-verdict"></div>
+          </div>
+          <div class="calc-side">
+            <div class="card">
+              <div class="card-title">Their Side</div>
+              <input type="text" id="calc-search-b" class="calc-search" placeholder="Search player or pick..." />
+              <div id="calc-search-results-b" class="search-results hidden"></div>
+              <div id="calc-side-b" class="calc-players"></div>
+              <div class="calc-total">
+                Total: <span id="calc-total-b" class="calc-total-value">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:1rem;">
+          <div class="card-title">📊 Value Sources Comparison</div>
+          <div id="calc-comparison" class="calc-comparison"></div>
+        </div>
+      </div>
+
+      <!-- DRAFT TAB -->
+      <div id="tab-draft" class="tab-panel">
+        <div class="card">
+          <div class="card-title">📋 Rookie Draft Board</div>
+          <p class="card-desc">Recommendations for the upcoming rookie draft based on current KTC & Dynasty Daddy values.</p>
+          <div class="draft-filters">
+            <button class="filter-btn active" data-round="ALL">All Rounds</button>
+            <button class="filter-btn" data-round="1">Round 1</button>
+            <button class="filter-btn" data-round="2">Round 2</button>
+            <button class="filter-btn" data-round="3">Round 3</button>
+          </div>
+        </div>
+        <div id="draft-board" class="draft-board"></div>
+        <div class="card" style="margin-top:1rem;">
+          <div class="card-title">🎯 Your Draft Picks</div>
+          <div id="your-picks" class="your-picks"></div>
+        </div>
+      </div>
+
+      <!-- LEAGUE TAB -->
+      <div id="tab-league" class="tab-panel">
+        <div class="card">
+          <div class="card-title">🏆 League Power Rankings</div>
+          <p class="card-desc">Teams ranked by total roster value (KTC + Dynasty Daddy average).</p>
+        </div>
+        <div id="power-rankings" class="power-rankings"></div>
+        <div class="card" style="margin-top:1rem;">
+          <div class="card-title">📈 Playoff Probability</div>
+          <div id="playoff-probs" class="playoff-probs"></div>
+        </div>
+        <div class="card" style="margin-top:1rem;">
+          <div class="card-title">📅 Current Standings</div>
+          <div id="standings-table" class="standings-table"></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- GLOBAL LOADING OVERLAY -->
+  <div id="global-loader" class="global-loader hidden">
+    <div class="loader-content">
+      <div class="loader-sword">⚔️</div>
+      <div class="loader-text" id="loader-text">Loading league data...</div>
+      <div class="loader-bar"><div class="loader-fill" id="loader-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="api.js"></script>
+  <script src="values.js"></script>
+  <script src="trades.js"></script>
+  <script src="draft.js"></script>
+  <script src="league.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
