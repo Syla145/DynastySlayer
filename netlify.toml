@@ -1,0 +1,7 @@
+[build]
+  publish = "."
+
+[[redirects]]
+  from = "/api/sleeper/*"
+  to = "/.netlify/functions/sleeper"
+  status = 200

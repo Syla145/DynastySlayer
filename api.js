@@ -1,35 +1,17 @@
-/* api.js – Sleeper API wrapper with multi-proxy CORS fallback */
+/* api.js – Sleeper API via Netlify function proxy (no CORS issues) */
 const SleeperAPI = (() => {
-  const BASE = 'https://api.sleeper.app/v1';
-
-  // Multiple proxies tried in order until one works
-  const PROXIES = [
-    url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-    url => `https://proxy.cors.sh/${url}`,
-  ];
 
   async function get(path) {
-    const directUrl = BASE + path;
+    // Use our own Netlify proxy – avoids all CORS issues
+    const proxyUrl = `/api/sleeper?path=${encodeURIComponent(path)}`;
 
-    // 1) Try direct first
     try {
-      const res = await fetch(directUrl, { method: 'GET', mode: 'cors' });
-      if (res.ok) return res.json();
-    } catch (_) {}
-
-    // 2) Try each proxy in order
-    for (const makeProxy of PROXIES) {
-      try {
-        const res = await fetch(makeProxy(directUrl), { method: 'GET' });
-        if (res.ok) {
-          const text = await res.text();
-          return JSON.parse(text);
-        }
-      } catch (_) {}
+      const res = await fetch(proxyUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    } catch (err) {
+      throw new Error(`Cannot reach Sleeper API: ${err.message}`);
     }
-
-    throw new Error('Cannot reach Sleeper API. Check your League ID and try again.');
   }
 
   return {
