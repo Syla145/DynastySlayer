@@ -1,16 +1,23 @@
-/* api.js – Sleeper API via Netlify function proxy (no CORS issues) */
+/* api.js
+   Strategy:
+   - Players DB: loaded from /data/players.json (pre-fetched by GitHub Actions, no CORS)
+   - League data: fetched live from Sleeper API via a lightweight fetch
+     The Sleeper API does support CORS for /league/* endpoints.
+     The /players/nfl endpoint does NOT reliably support CORS from browsers,
+     which is why we pre-fetch it via GitHub Actions instead.
+*/
+
 const SleeperAPI = (() => {
+  const BASE = 'https://api.sleeper.app/v1';
 
   async function get(path) {
-    // Use our own Netlify proxy – avoids all CORS issues
-    const proxyUrl = `/api/sleeper?path=${encodeURIComponent(path)}`;
-
+    const url = BASE + path;
     try {
-      const res = await fetch(proxyUrl);
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
     } catch (err) {
-      throw new Error(`Cannot reach Sleeper API: ${err.message}`);
+      throw new Error(`Sleeper API error: ${err.message}`);
     }
   }
 
@@ -23,13 +30,12 @@ const SleeperAPI = (() => {
     getDrafts:      id  => get(`/league/${id}/drafts`),
     getDraft:       did => get(`/draft/${did}`),
     getDraftPicks2: did => get(`/draft/${did}/picks`),
-    getPlayers:     ()  => get('/players/nfl'),
     getTrendingPlayers: (type = 'add', limit = 10) =>
       get(`/players/nfl/trending/${type}?lookback_hours=24&limit=${limit}`),
   };
 })();
 
-// ── Player DB cache ──────────────────────────────────────────────
+// ── Player DB – loaded from pre-fetched local file ────────────────
 const PlayerDB = (() => {
   let _players = null;
   let _promise  = null;
@@ -39,10 +45,14 @@ const PlayerDB = (() => {
     if (_promise)  return _promise;
 
     _promise = (async () => {
-      if (onProgress) onProgress('Fetching player database (~5MB, please wait)...', 20);
-      const raw = await SleeperAPI.getPlayers();
+      if (onProgress) onProgress('Loading player database...', 20);
+
+      // Load from local pre-fetched file (no CORS issues!)
+      const res = await fetch('./data/players.json');
+      if (!res.ok) throw new Error('Player database not found. Please wait for GitHub Actions to complete the first deploy.');
+
       if (onProgress) onProgress('Processing player data...', 60);
-      _players = raw;
+      _players = await res.json();
       return _players;
     })();
     return _promise;
