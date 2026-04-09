@@ -1,39 +1,49 @@
-/* api.js – Sleeper API wrapper with CORS proxy fallback */
+/* api.js – Sleeper API wrapper with multi-proxy CORS fallback */
 const SleeperAPI = (() => {
-  const BASE  = 'https://api.sleeper.app/v1';
-  const PROXY = 'https://corsproxy.io/?url=';
+  const BASE = 'https://api.sleeper.app/v1';
+
+  // Multiple proxies tried in order until one works
+  const PROXIES = [
+    url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+    url => `https://proxy.cors.sh/${url}`,
+  ];
 
   async function get(path) {
     const directUrl = BASE + path;
 
-    // 1) Try direct first (works in some environments)
+    // 1) Try direct first
     try {
       const res = await fetch(directUrl, { method: 'GET', mode: 'cors' });
       if (res.ok) return res.json();
-    } catch (_) { /* fall through to proxy */ }
+    } catch (_) {}
 
-    // 2) Fallback: CORS proxy
-    try {
-      const proxyUrl = PROXY + encodeURIComponent(directUrl);
-      const res = await fetch(proxyUrl);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return res.json();
-    } catch (err) {
-      throw new Error(`Cannot reach Sleeper API. Please check your League ID. (${err.message})`);
+    // 2) Try each proxy in order
+    for (const makeProxy of PROXIES) {
+      try {
+        const res = await fetch(makeProxy(directUrl), { method: 'GET' });
+        if (res.ok) {
+          const text = await res.text();
+          return JSON.parse(text);
+        }
+      } catch (_) {}
     }
+
+    throw new Error('Cannot reach Sleeper API. Check your League ID and try again.');
   }
 
   return {
-    getLeague:      id   => get(`/league/${id}`),
-    getRosters:     id   => get(`/league/${id}/rosters`),
-    getUsers:       id   => get(`/league/${id}/users`),
+    getLeague:      id  => get(`/league/${id}`),
+    getRosters:     id  => get(`/league/${id}/rosters`),
+    getUsers:       id  => get(`/league/${id}/users`),
     getMatchups:    (id, week) => get(`/league/${id}/matchups/${week}`),
-    getDraftPicks:  id   => get(`/league/${id}/traded_picks`),
-    getDrafts:      id   => get(`/league/${id}/drafts`),
-    getDraft:       did  => get(`/draft/${did}`),
-    getDraftPicks2: did  => get(`/draft/${did}/picks`),
-    getPlayers:     ()   => get('/players/nfl'),        // ~5 MB, cache it
-    getTrendingPlayers: (type='add', limit=10) => get(`/players/nfl/trending/${type}?lookback_hours=24&limit=${limit}`),
+    getDraftPicks:  id  => get(`/league/${id}/traded_picks`),
+    getDrafts:      id  => get(`/league/${id}/drafts`),
+    getDraft:       did => get(`/draft/${did}`),
+    getDraftPicks2: did => get(`/draft/${did}/picks`),
+    getPlayers:     ()  => get('/players/nfl'),
+    getTrendingPlayers: (type = 'add', limit = 10) =>
+      get(`/players/nfl/trending/${type}?lookback_hours=24&limit=${limit}`),
   };
 })();
 
@@ -47,7 +57,7 @@ const PlayerDB = (() => {
     if (_promise)  return _promise;
 
     _promise = (async () => {
-      if (onProgress) onProgress('Fetching player database (this may take a moment)...', 20);
+      if (onProgress) onProgress('Fetching player database (~5MB, please wait)...', 20);
       const raw = await SleeperAPI.getPlayers();
       if (onProgress) onProgress('Processing player data...', 60);
       _players = raw;
@@ -56,8 +66,9 @@ const PlayerDB = (() => {
     return _promise;
   }
 
-  function get(id) { return _players ? (_players[id] || null) : null; }
-  function all()   { return _players || {}; }
+  function get(id)  { return _players ? (_players[id] || null) : null; }
+  function all()    { return _players || {}; }
+
   function search(query, limit = 20) {
     if (!_players) return [];
     const q = query.toLowerCase();
