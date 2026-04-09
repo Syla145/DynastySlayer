@@ -1,13 +1,18 @@
-name: Deploy DynastySlayer to GitHub Pages
+name: Fetch Sleeper Data & Deploy to GitHub Pages
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  schedule:
+    - cron: '0 */6 * * *'   # auto-refresh every 6 hours
   workflow_dispatch:
+    inputs:
+      league_id:
+        description: 'Sleeper League ID to pre-fetch'
+        required: false
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -17,13 +22,30 @@ concurrency:
 
 jobs:
   deploy:
+    runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Fetch Sleeper Players DB
+        run: |
+          mkdir -p data
+          echo "Fetching NFL players database..."
+          curl -s "https://api.sleeper.app/v1/players/nfl" \
+            -H "Accept: application/json" \
+            -o data/players.json
+          echo "Players fetched: $(wc -c < data/players.json) bytes"
+
+      - name: Commit data files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/players.json
+          git diff --staged --quiet || git commit -m "chore: refresh player data [skip ci]"
+          git push
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
