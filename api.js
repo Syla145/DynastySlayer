@@ -1,11 +1,26 @@
-/* api.js – Sleeper API wrapper */
+/* api.js – Sleeper API wrapper with CORS proxy fallback */
 const SleeperAPI = (() => {
-  const BASE = 'https://api.sleeper.app/v1';
+  const BASE  = 'https://api.sleeper.app/v1';
+  const PROXY = 'https://corsproxy.io/?url=';
 
   async function get(path) {
-    const res = await fetch(BASE + path);
-    if (!res.ok) throw new Error(`API error ${res.status}: ${path}`);
-    return res.json();
+    const directUrl = BASE + path;
+
+    // 1) Try direct first (works in some environments)
+    try {
+      const res = await fetch(directUrl, { method: 'GET', mode: 'cors' });
+      if (res.ok) return res.json();
+    } catch (_) { /* fall through to proxy */ }
+
+    // 2) Fallback: CORS proxy
+    try {
+      const proxyUrl = PROXY + encodeURIComponent(directUrl);
+      const res = await fetch(proxyUrl);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    } catch (err) {
+      throw new Error(`Cannot reach Sleeper API. Please check your League ID. (${err.message})`);
+    }
   }
 
   return {
